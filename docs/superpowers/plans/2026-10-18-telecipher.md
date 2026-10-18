@@ -41,7 +41,7 @@
 - Modify: `.gitignore`（已有）
 
 **Interfaces:**
-- Produces: `isAuthorized(provided: string | undefined, configured: string): boolean`；runtimeConfig `telecipherToken`（env `NUXT_TELECIPHER_TOKEN`）、`telecipherHome`（`process.env.HOME`）；cookie 名 `telecipher_token`；header 名 `x-telecipher-token`。
+- Produces: `isAuthorized(provided: string | undefined, configured: string): boolean`；runtimeConfig `telecipherToken`（env `NUXT_TELECIPHER_TOKEN`）、`telecipherHome`（`NUXT_TELECIPHER_HOME`，預設 `process.env.HOME`）、`telecipherDataDir`（`NUXT_TELECIPHER_DATA_DIR`，空字串 = `process.cwd()`；測試用它把資料檔導去 tmp，避免動到 production 的 store、VAPID、訂閱）；cookie 名 `telecipher_token`；header 名 `x-telecipher-token`。
 
 - [ ] **Step 1: 建 package.json 並安裝**
 
@@ -88,7 +88,8 @@ export default defineNuxtConfig({
   nitro: { preset: 'node-server' },
   runtimeConfig: {
     telecipherToken: '',                      // NUXT_TELECIPHER_TOKEN
-    telecipherHome: process.env.HOME || '',   // pathjail root
+    telecipherHome: process.env.HOME || '',   // NUXT_TELECIPHER_HOME，pathjail root
+    telecipherDataDir: '',                    // NUXT_TELECIPHER_DATA_DIR，.requests.json/.vapid.json/.push-subscriptions.json 所在；空 = process.cwd()
   },
   app: {
     head: {
@@ -1097,7 +1098,7 @@ Claude-Session: https://claude.ai/code/session_011isrhay5op9wh4NpmsPEuu"
 ### Task 7: 需求 API（建立、列表、單筆、wait、cancel、fulfill、clear-done）＋ boot plugin
 
 **Files:**
-- Create: `server/lib/validate.ts`、`server/plugins/boot.ts`、`server/api/requests/index.get.ts`、`server/api/requests/index.post.ts`、`server/api/requests/[id].get.ts`、`server/api/requests/[id].delete.ts`、`server/api/requests/[id]/wait.get.ts`、`server/api/requests/[id]/fulfill.post.ts`、`server/api/requests/clear-done.post.ts`、`server/lib/notify.ts`（本 task 先留空殼，Task 8 填）、`test/validate.test.ts`、`test/api.e2e.test.ts`
+- Create: `server/lib/validate.ts`、`server/lib/dataDir.ts`、`server/plugins/boot.ts`、`server/api/requests/index.get.ts`、`server/api/requests/index.post.ts`、`server/api/requests/[id].get.ts`、`server/api/requests/[id].delete.ts`、`server/api/requests/[id]/wait.get.ts`、`server/api/requests/[id]/fulfill.post.ts`、`server/api/requests/clear-done.post.ts`、`server/lib/notify.ts`（本 task 先留空殼，Task 8 填）、`test/validate.test.ts`、`test/api.e2e.test.ts`
 
 **Interfaces:**
 - Consumes: `resolveTarget`、store 全部、`writeSecretFile`、`writeSecretEnvKey`、`isValidEnvKey`。
@@ -1175,11 +1176,21 @@ import type { SecretRequest } from './types'
 export async function notifyNewRequest(_r: SecretRequest): Promise<void> { /* Task 8 */ }
 ```
 
+`server/lib/dataDir.ts`：
+```ts
+import { join } from 'node:path'
+/** 資料檔目錄：runtimeConfig.telecipherDataDir，空 = server cwd（repo 根）。 */
+export function dataDir(): string { return useRuntimeConfig().telecipherDataDir || process.cwd() }
+export function dataFile(name: string): string { return join(dataDir(), name) }
+```
+
 `server/plugins/boot.ts`：
 ```ts
-import { load as loadRequests } from '../lib/requestStore'
+import { configure as configureRequests, load as loadRequests } from '../lib/requestStore'
+import { dataFile } from '../lib/dataDir'
 
 export default defineNitroPlugin(() => {
+  configureRequests(dataFile('.requests.json'))
   loadRequests()
 })
 ```
@@ -1292,17 +1303,19 @@ export default defineEventHandler(async () => ({ removed: await clearDone() }))
 ```ts
 import { describe, it, expect, beforeAll } from 'vitest'
 import { setup, $fetch, fetch } from '@nuxt/test-utils/e2e'
-import { mkdtempSync, readFileSync, statSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, statSync, writeFileSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const TOKEN = 'e2e-token'
-const home = mkdtempSync(join(tmpdir(), 'tc-e2e-home-'))
-process.env.NUXT_TELECIPHER_TOKEN = TOKEN
-process.env.NUXT_TELECIPHER_HOME = home
-rmSync(join(process.cwd(), '.requests.json'), { force: true })   // server cwd = repo 根，清掉上次殘留
+// realpath：macOS 的 tmpdir 是 /var/… → /private/var/…，resolveTarget 回的是 real 拼法
+const home = realpathSync(mkdtempSync(join(tmpdir(), 'tc-e2e-home-')))
+// 資料檔導去 tmp：production 就跑在這個 repo 目錄，絕不能動到真的 .requests.json / .vapid.json / 訂閱（會真的推播）
+const dataDir = realpathSync(mkdtempSync(join(tmpdir(), 'tc-e2e-data-')))
+const env = { NUXT_TELECIPHER_TOKEN: TOKEN, NUXT_TELECIPHER_HOME: home, NUXT_TELECIPHER_DATA_DIR: dataDir }
+Object.assign(process.env, env)
 
-await setup({ server: true, browser: false, env: { NUXT_TELECIPHER_TOKEN: TOKEN, NUXT_TELECIPHER_HOME: home } })
+await setup({ server: true, browser: false, env })
 
 const H = { 'x-telecipher-token': TOKEN }
 const api = <T = any>(path: string, init: any = {}) => $fetch<T>(path, { ...init, headers: { ...H, ...(init.headers ?? {}) } })
@@ -1360,8 +1373,10 @@ describe('requests flow', () => {
     const res = await fetch(`/api/requests/${id}/fulfill`, { method: 'POST', headers: { ...H, 'content-type': 'application/json' }, body: JSON.stringify({ value: 'x' }) })
     expect(res.status).toBe(409)
   })
-  it('.requests.json 內搜不到值', async () => {
-    expect(readFileSync(join(process.cwd(), '.requests.json'), 'utf8')).not.toMatch(/sk-abc/)
+  it('.requests.json 在 dataDir、0600、內搜不到值', async () => {
+    const f = join(dataDir, '.requests.json')
+    expect(statSync(f).mode & 0o777).toBe(0o600)
+    expect(readFileSync(f, 'utf8')).not.toMatch(/sk-abc/)
   })
   it('DELETE pending → 204 cancelled；404 for unknown', async () => {
     const j = await api('/api/requests', { method: 'POST', body: { session: 'dev', path: '~/proj/key.json', mode: 'file', description: 'd' } })
@@ -1382,8 +1397,6 @@ describe('requests flow', () => {
   })
 })
 ```
-
-e2e 會在 repo 根寫 `.requests.json`（server cwd），檔頭已先刪掉殘留。
 
 Run: `bun run test test/api.e2e.test.ts`
 Expected: 全部 passed（第一次會 build nuxt，約 30–60 秒）。若 `NUXT_TELECIPHER_HOME` 沒生效，確認 `nuxt.config.ts` 的 `runtimeConfig.telecipherHome` 鍵名（Nuxt 以 `NUXT_` ＋ 大寫蛇形覆寫）。
@@ -1526,8 +1539,8 @@ export function shouldPrune(statusCode?: number): boolean { return statusCode ==
 
 let ready = false
 /** 啟動時呼叫：設 VAPID；缺檔 → 推播停用，不 throw。 */
-export function startPush(): void {
-  const keys = loadVapid()
+export function startPush(vapidPath: string): void {
+  const keys = loadVapid(vapidPath)
   if (!keys) { console.warn('[push] 找不到 .vapid.json，推播停用（執行 bun run setup）'); return }
   try { webpush.setVapidDetails('mailto:telecipher@localhost', keys.publicKey, keys.privateKey); ready = true }
   catch (e: any) { console.warn('[push] VAPID 金鑰無效，推播停用', e?.message) }
@@ -1559,21 +1572,27 @@ export async function notifyNewRequest(r: SecretRequest): Promise<void> {
 
 `server/plugins/boot.ts`：
 ```ts
-import { load as loadRequests } from '../lib/requestStore'
-import { load as loadSubs } from '../lib/pushStore'
+import { configure as configureRequests, load as loadRequests } from '../lib/requestStore'
+import { configure as configureSubs, load as loadSubs } from '../lib/pushStore'
 import { startPush } from '../lib/pushNotify'
+import { dataFile } from '../lib/dataDir'
 
 export default defineNitroPlugin(() => {
+  configureRequests(dataFile('.requests.json'))
   loadRequests()
+  configureSubs(dataFile('.push-subscriptions.json'))
   loadSubs()
-  startPush()
+  startPush(dataFile('.vapid.json'))
 })
 ```
+
+`startPush` 簽名改為 `startPush(vapidPath: string): void`，內部 `loadVapid(vapidPath)`。
 
 `server/api/push/vapid-public-key.get.ts`：
 ```ts
 import { loadVapid } from '../../lib/vapid'
-export default defineEventHandler(() => ({ key: loadVapid()?.publicKey ?? null }))
+import { dataFile } from '../../lib/dataDir'
+export default defineEventHandler(() => ({ key: loadVapid(dataFile('.vapid.json'))?.publicKey ?? null }))
 ```
 
 `server/api/push/subscribe.post.ts`：
@@ -2153,6 +2172,8 @@ Run: `chmod +x deploy/*.sh`；`.gitignore` 加一行 `deploy/*.plist`（渲染�
 
 - [ ] **Step 4: build、安裝 daemon、開 Tailscale Serve**
 
+⚠️ 需要 Zac 在鍵盤前（`sudo` 密碼）。執行者先把 orchestrator 報表 `status` 改 `waiting` 並發通知，再等 Zac。
+
 ```bash
 bun run build
 deploy/install-launchd.sh
@@ -2219,6 +2240,8 @@ git push
 - Create: `docs/superpowers/notes/2026-10-18-deploy-and-push.md`
 
 - [ ] **Step 1: iPhone 安裝 PWA 並訂閱**
+
+⚠️ 整個 Task 11 需要 Zac 拿著 iPhone。先把報表 `status` 改 `waiting` 並發通知。
 
 Zac 手動：Safari 開 `https://m1-pro.tail521001.ts.net:8444` → 登入 → 分享 → 加入主畫面 → 從主畫面開 → 點鈴鐺 → 允許。確認 `.push-subscriptions.json` 多一筆：`ls -la .push-subscriptions.json`（0600）。
 
@@ -2470,6 +2493,8 @@ Expected: 安裝成功，`ls ~/.claude/plugins/cache/zac-skills/telecipher/*/ski
 - Modify: `docs/superpowers/notes/2026-10-18-deploy-and-push.md`（追加端到端結果）
 
 - [ ] **Step 1: 另開 session 走完整流程**
+
+⚠️ 需要 Zac 操作另一個 session 與 iPhone。先把報表 `status` 改 `waiting` 並發通知。
 
 在 tmux 開一個新 Claude Code session（cwd 任一專案），下指令：「用 telecipher:request-secret 幫我要一個 DEMO_E2E_KEY，寫到 ~/tmp/telecipher-e2e/.env，說明『端到端測試』」。
 Expected：session 背景跑 `request.sh`、回報「已登錄需求」。iPhone 收到「🔑 {session} · 需要 DEMO_E2E_KEY」。
