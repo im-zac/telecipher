@@ -8,5 +8,5 @@ export default defineNitroPlugin(() => {
   loadRequests()
   configureSubs(dataFile('.push-subscriptions.json'))
   loadSubs()
-  startPush(dataFile('.vapid.json'))
+  startPush(dataFile('.vapid.json'), useRuntimeConfig().telecipherPushSubject)
 })

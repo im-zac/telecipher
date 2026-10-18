@@ -19,3 +19,10 @@
 - Chrome PWA 收到推播，Zac 填值送出。腳本 stdout：`REGISTERED kvhe3kgcvu2i …` 然後 `FULFILLED kvhe3kgcvu2i`，exit 0。
 - 驗證同上：目錄 `0700`、檔 `0600`、store 與 log 無值。
 - 本次由 telecipher 自己的 session 執行腳本，而非另開 Claude Code session；plugin 載入到 skill 觸發這段靠 `SKILL.md` 描述，未在本次實測。
+
+## iPhone PWA：Apple 回 403 BadJwtToken（2026-10-19）
+
+- 現象：iPhone 裝 PWA、訂閱成功（endpoint `web.push.apple.com`），但送推播 log 印 `[push] 送出失敗 403`。FCM（Chrome）正常。
+- 根因：VAPID subject 寫死 `mailto:telecipher@localhost`。Apple 驗 JWT 的 `sub`，不接受 localhost 這種無效 mailto；回 body `{"reason":"BadJwtToken"}`。FCM 不檢查 subject。
+- 驗證：用 web-push 直接對同一 Apple endpoint 送，subject 換成 `https://github.com/im-zac/telecipher` → 201。
+- 修法：`vapidSubject()` 預設 https 專案網址，可用 `NUXT_TELECIPHER_PUSH_SUBJECT` 覆寫。重部署後 iPhone 收到。

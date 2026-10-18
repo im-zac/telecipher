@@ -16,3 +16,14 @@ describe('buildNotification', () => {
 describe('shouldPrune', () => {
   it('404/410 → true，其他 false', () => { expect(shouldPrune(410)).toBe(true); expect(shouldPrune(404)).toBe(true); expect(shouldPrune(500)).toBe(false); expect(shouldPrune(undefined)).toBe(false) })
 })
+describe('vapidSubject', () => {
+  it('預設是 https URL（Apple 拒絕 mailto:…@localhost，回 403 BadJwtToken）', async () => {
+    const { vapidSubject } = await import('../server/lib/pushNotify')
+    expect(vapidSubject(undefined)).toMatch(/^https:\/\//)
+    expect(vapidSubject('')).toMatch(/^https:\/\//)
+  })
+  it('有設定就用設定值', async () => {
+    const { vapidSubject } = await import('../server/lib/pushNotify')
+    expect(vapidSubject('mailto:me@example.com')).toBe('mailto:me@example.com')
+  })
+})

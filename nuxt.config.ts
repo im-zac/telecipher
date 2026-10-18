@@ -7,6 +7,7 @@ export default defineNuxtConfig({
     telecipherToken: '',                      // NUXT_TELECIPHER_TOKEN
     telecipherHome: process.env.HOME || '',   // NUXT_TELECIPHER_HOME，pathjail root
     telecipherDataDir: '',                    // NUXT_TELECIPHER_DATA_DIR，.requests.json/.vapid.json/.push-subscriptions.json 所在；空 = process.cwd()
+    telecipherPushSubject: '',                // NUXT_TELECIPHER_PUSH_SUBJECT，VAPID subject；空 = https://github.com/im-zac/telecipher（Apple 拒絕 mailto:…@localhost）
   },
   app: {
     head: {
