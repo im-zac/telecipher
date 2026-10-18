@@ -12,3 +12,10 @@
 
 - launchd 的 stdout/stderr 導到 `logs/telecipher-server.log`（repo 內，已 gitignore）。正常只有一行 `Listening on http://127.0.0.1:9877`；推播成功不留 log，失敗才會印。
 - iPhone PWA 尚未實測；Web Push 在 iOS 需「加入主畫面」後從主畫面開啟才能訂閱。流程與桌面相同。
+
+## Skill 端對端（Task 13）
+
+- 用已安裝 plugin `telecipher@zac-skills` 的 `scripts/request.sh` 對 production daemon 登錄 `DEMO_E2E_KEY` → `~/tmp/telecipher-e2e/.env`，`run_in_background` 等待。
+- Chrome PWA 收到推播，Zac 填值送出。腳本 stdout：`REGISTERED kvhe3kgcvu2i …` 然後 `FULFILLED kvhe3kgcvu2i`，exit 0。
+- 驗證同上：目錄 `0700`、檔 `0600`、store 與 log 無值。
+- 本次由 telecipher 自己的 session 執行腳本，而非另開 Claude Code session；plugin 載入到 skill 觸發這段靠 `SKILL.md` 描述，未在本次實測。
