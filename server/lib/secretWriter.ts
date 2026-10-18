@@ -6,7 +6,9 @@ import { upsertEnvLine } from './envfile'
 export async function atomicWrite(path: string, data: string, mode = 0o600): Promise<void> {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 })
   const tmp = path + '.tmp'
-  const fh = await open(tmp, 'w', mode)
+  // 先移掉任何殘留／被植入的 tmp（unlink 不跟 symlink），再以 O_EXCL 建立：絕不寫穿既有路徑。
+  await unlink(tmp).catch((e: any) => (e?.code === 'ENOENT' ? null : Promise.reject(e)))
+  const fh = await open(tmp, 'wx', mode)
   try {
     await fh.writeFile(data, 'utf8')
     await fh.sync()

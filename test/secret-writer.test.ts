@@ -57,3 +57,15 @@ describe('atomicWrite', () => {
     expect(existsSync(p + '.tmp')).toBe(false)
   })
 })
+
+describe('atomicWrite 對抗被植入的 .tmp symlink', () => {
+  it('path.tmp 是指向別處的 symlink → 不寫穿、目標仍正確寫入', async () => {
+    const { symlinkSync } = await import('node:fs')
+    const victim = join(dir, 'victim'); writeFileSync(victim, 'untouched')
+    const p = join(dir, 'f'); symlinkSync(victim, p + '.tmp')
+    await atomicWrite(p, 'secret')
+    expect(readFileSync(victim, 'utf8')).toBe('untouched')
+    expect(readFileSync(p, 'utf8')).toBe('secret')
+    expect(existsSync(p + '.tmp')).toBe(false)
+  })
+})
