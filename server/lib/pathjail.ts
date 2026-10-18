@@ -36,8 +36,10 @@ export async function resolveTarget(
   if (abs === homeReal) return { ok: false, reason: '路徑是目錄，需要檔案路徑' }
 
   const rel = relative(homeReal, abs)
-  if (DENY_PREFIXES.some((d) => rel === d || rel.startsWith(d + sep))) return { ok: false, reason: `路徑在拒絕清單（${rel.split(sep)[0]}）` }
-  if (DENY_PATTERNS.some((re) => re.test(rel))) return { ok: false, reason: '路徑在拒絕清單（.claude/settings*）' }
+  // macOS 預設檔案系統不分大小寫：~/.SSH 就是 ~/.ssh。拒絕清單一律小寫比對。
+  const relLower = rel.toLowerCase()
+  if (DENY_PREFIXES.some((d) => relLower === d.toLowerCase() || relLower.startsWith(d.toLowerCase() + sep))) return { ok: false, reason: `路徑在拒絕清單（${rel.split(sep)[0]}）` }
+  if (DENY_PATTERNS.some((re) => re.test(relLower))) return { ok: false, reason: '路徑在拒絕清單（.claude/settings*）' }
   if (opts.repoDir) {
     const repoReal = await realpath(opts.repoDir).catch(() => resolve(opts.repoDir!))
     if (under(repoReal, abs)) return { ok: false, reason: '路徑在拒絕清單（telecipher 自己的目錄）' }

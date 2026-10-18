@@ -76,3 +76,11 @@ describe('resolveTarget', () => {
     expect(await bad('')).toMatch(/空/)
   })
 })
+
+describe('resolveTarget 大小寫（macOS 檔案系統不分大小寫）', () => {
+  it('拒絕清單比對忽略大小寫', async () => {
+    for (const p of ['~/.SSH/id', '~/library/x', '~/.Zshrc', '~/.claude/Settings.json']) {
+      expect(await bad(p, 'env')).toMatch(/拒絕清單/)
+    }
+  })
+})
