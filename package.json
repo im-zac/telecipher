@@ -1,0 +1,28 @@
+{
+  "name": "telecipher",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "nuxt dev --host 127.0.0.1 --port 9877",
+    "build": "nuxt build",
+    "test": "vitest run",
+    "setup": "node scripts/setup.mjs",
+    "icons": "node scripts/gen-icons.mjs"
+  },
+  "dependencies": {
+    "nuxt": "^4.4.8",
+    "vue": "^3.5.38",
+    "vue-router": "^5.1.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@nuxt/test-utils": "^4.0.3",
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/web-push": "^3.6.4",
+    "happy-dom": "^20.10.6",
+    "vitest": "^4.1.9"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
