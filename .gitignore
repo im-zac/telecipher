@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+
+# Nuxt / Nitro build artifacts
+.nuxt/
+.output/
+.data/
+dist/
+
+# secrets / runtime state（全部 0600，絕不進版控）
+.env
+.env.*
+!.env.example
+.token
+.vapid.json
+.push-subscriptions.json
+.requests.json
+*.json.tmp
+
+# logs
+*.log
+logs/
+
+# OS
+.DS_Store
+._*
+
+# Claude Code
+.claude/worktrees/
+.superpowers/
