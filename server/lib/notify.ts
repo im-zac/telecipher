@@ -1,4 +1,7 @@
 import type { SecretRequest } from './types'
+import { buildNotification, sendToAll } from './pushNotify'
 
-/** Task 8 會換成真的 Web Push。 */
-export async function notifyNewRequest(_r: SecretRequest): Promise<void> { /* no-op until Task 8 */ }
+/** 新需求建立 → 推播給所有訂閱裝置。payload 只含 metadata。 */
+export async function notifyNewRequest(r: SecretRequest): Promise<void> {
+  await sendToAll({ ...buildNotification(r), id: r.id })
+}
