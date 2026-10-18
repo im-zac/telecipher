@@ -28,3 +28,4 @@ logs/
 # Claude Code
 .claude/worktrees/
 .superpowers/
+deploy/*.plist
