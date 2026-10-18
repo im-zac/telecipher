@@ -1,6 +1,8 @@
 #!/bin/zsh
 # 安裝 telecipher LaunchDaemon（開機即起、免登入）。路徑由腳本位置推導。
 set -e
+# 不要用 sudo 跑整支腳本：$USER／$HOME 會變成 root 的，daemon 會以 root 跑、jail 根變 /var/root。腳本內部需要時自行 sudo。
+[[ $EUID -eq 0 ]] && { echo "請以一般使用者執行（腳本內部會自行 sudo）"; exit 1 }
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 LABEL=com.telecipher.server
 DST=/Library/LaunchDaemons/$LABEL.plist
