@@ -41,3 +41,18 @@ describe('isValidEnvKey', () => {
   it.each(['A', 'a_b', '_X1', 'OPENAI_API_KEY'])('接受 %s', (k) => expect(isValidEnvKey(k)).toBe(true))
   it.each(['', '1A', 'A-B', 'A B', 'A=', 'é'])('拒絕 %j', (k) => expect(isValidEnvKey(k)).toBe(false))
 })
+
+describe('含 $ 或反引號的值', () => {
+  it('值含 $ → 用單引號包，不跳脫', () => {
+    expect(upsertEnvLine('', 'A', 'pa$$word')).toBe("A='pa$$word'\n")
+  })
+  it('值含反引號 → 用單引號包', () => {
+    expect(upsertEnvLine('', 'A', 'a`b')).toBe("A='a`b'\n")
+  })
+  it("值含 $ 又含 ' → 退回雙引號並跳脫 $", () => {
+    expect(upsertEnvLine('', 'A', "it's $1")).toBe('A="it\'s \\$1"\n')
+  })
+  it('值含 $ 又含換行 → 雙引號、\\n、跳脫 $', () => {
+    expect(upsertEnvLine('', 'A', 'a$\nb')).toBe('A="a\\$\\nb"\n')
+  })
+})

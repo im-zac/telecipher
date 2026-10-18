@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { atomicWrite } from './secretWriter'
+import { atomicWrite, withPathLock } from './secretWriter'
 
 export interface PushSub { endpoint: string; keys: { p256dh: string; auth: string }; [k: string]: unknown }
 
@@ -20,7 +20,7 @@ export function load(): void {
 export function all(): PushSub[] { return [...subs.values()] }
 export async function add(sub: PushSub): Promise<void> { if (!sub?.endpoint) return; subs.set(sub.endpoint, sub); await persist() }
 export async function removeByEndpoint(endpoint: string): Promise<void> { if (subs.delete(endpoint)) await persist() }
-async function persist(): Promise<void> { await atomicWrite(filePath, JSON.stringify([...subs.values()], null, 2) + '\n', 0o600) }
+async function persist(): Promise<void> { const snap = JSON.stringify([...subs.values()], null, 2) + '\n'; await withPathLock(filePath, () => atomicWrite(filePath, snap, 0o600)) }
 
 /** 測試用。 */
 export function __reset(): void { subs = new Map(); filePath = '.push-subscriptions.json' }

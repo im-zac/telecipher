@@ -102,3 +102,23 @@ describe('waitFor', () => {
     expect((await p)?.status).toBe('fulfilled')
   })
 })
+
+describe('持久化健壯性', () => {
+  it('3 個 add 並發 → 全部成功且重 load 後 3 筆都在', async () => {
+    await Promise.all([store.add(input()), store.add(input({ key: 'B' })), store.add(input({ key: 'C' }))])
+    store.__reset(); store.configure(file); store.load()
+    expect(store.list()).toHaveLength(3)
+  })
+  it('markFulfilled 持久化失敗 → reject、狀態回到 pending、waiter 不醒', async () => {
+    const a = await store.add(input())
+    // 讓 persist 失敗：把儲存路徑指到「父目錄是一般檔」的位置（mkdir → ENOTDIR）
+    writeFileSync(join(dir, 'blocker'), 'x')
+    store.configure(join(dir, 'blocker', 'x.json'))
+    const woke = vi.fn()
+    store.waitFor(a.id, 5000).then(woke)
+    await expect(store.markFulfilled(a.id)).rejects.toBeTruthy()
+    expect(store.get(a.id)?.status).toBe('pending')
+    await new Promise((r) => setTimeout(r, 20))
+    expect(woke).not.toHaveBeenCalled()
+  })
+})

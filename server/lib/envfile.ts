@@ -2,8 +2,16 @@ const KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 export function isValidEnvKey(key: string): boolean { return KEY_RE.test(key) }
 
+/**
+ * 含 $ 或反引號的值：多數 .env 解析器（dotenv、c12、docker compose、shell source）在雙引號內會展開它們，
+ * 所以改用單引號（內容原樣、不跳脫）；值同時含 ' 或換行時退回雙引號並把 $ 與反引號也跳脫。
+ */
 function quote(value: string): string {
-  return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, '\\n') + '"'
+  const risky = /[$`]/.test(value)
+  if (risky && !/['\r\n]/.test(value)) return "'" + value + "'"
+  let v = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, '\\n')
+  if (risky) v = v.replace(/\$/g, '\\$').replace(/`/g, '\\`')
+  return '"' + v + '"'
 }
 
 /**

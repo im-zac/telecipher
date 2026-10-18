@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, rmSync, readFileSync, statSync, readdirSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync, readFileSync, statSync, readdirSync, writeFileSync, lstatSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { writeSecretFile, writeSecretEnvKey, atomicWrite } from '../server/lib/secretWriter'
@@ -54,7 +54,7 @@ describe('atomicWrite', () => {
     const p = join(dir, 'f.json')
     await atomicWrite(p, '{}')
     expect(mode(p)).toBe(0o600)
-    expect(existsSync(p + '.tmp')).toBe(false)
+    expect(readdirSync(dir)).toEqual(['f.json'])
   })
 })
 
@@ -66,6 +66,24 @@ describe('atomicWrite 對抗被植入的 .tmp symlink', () => {
     await atomicWrite(p, 'secret')
     expect(readFileSync(victim, 'utf8')).toBe('untouched')
     expect(readFileSync(p, 'utf8')).toBe('secret')
-    expect(existsSync(p + '.tmp')).toBe(false)
+    // tmp 名稱唯一，被植入的 f.tmp 與我們無關：不寫它、也不動它
+    expect(lstatSync(p + '.tmp').isSymbolicLink()).toBe(true)
+  })
+})
+
+describe('並發寫入', () => {
+  it('同一路徑 5 個 atomicWrite 並發 → 全部成功、結果是其中一個完整內容、不留 tmp', async () => {
+    const p = join(dir, 'k')
+    const payloads = [0, 1, 2, 3, 4].map((i) => `payload-${i}\n`)
+    await Promise.all(payloads.map((d) => atomicWrite(p, d)))
+    expect(payloads).toContain(readFileSync(p, 'utf8'))
+    expect(readdirSync(dir)).toEqual(['k'])
+  })
+  it('同一 .env 兩個 key 並發 upsert → 兩個 key 都在', async () => {
+    const p = join(dir, '.env')
+    await Promise.all([writeSecretEnvKey(p, 'A', '1'), writeSecretEnvKey(p, 'B', '2')])
+    const c = readFileSync(p, 'utf8')
+    expect(c).toMatch(/^A="1"$/m)
+    expect(c).toMatch(/^B="2"$/m)
   })
 })

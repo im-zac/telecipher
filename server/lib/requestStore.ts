@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import type { SecretRequest, WriteMode } from './types'
 import { newId } from './id'
-import { atomicWrite } from './secretWriter'
+import { atomicWrite, withPathLock } from './secretWriter'
 
 let filePath = '.requests.json'          // repo 根 = server cwd
 let items: SecretRequest[] = []          // 舊到新
@@ -20,8 +20,17 @@ export function load(): void {
   }
 }
 
+/** 同一檔串行寫，並發 add/fulfill 不互撞。 */
 async function persist(): Promise<void> {
-  await atomicWrite(filePath, JSON.stringify({ requests: items }, null, 2) + '\n', 0o600)
+  const snapshot = JSON.stringify({ requests: items }, null, 2) + '\n'
+  await withPathLock(filePath, () => atomicWrite(filePath, snapshot, 0o600))
+}
+
+/** 先改狀態再 persist；persist 失敗就回滾成 pending，不喚醒 waiter（spec：寫檔完成才改狀態）。 */
+async function transition(r: SecretRequest, status: 'fulfilled' | 'cancelled'): Promise<void> {
+  r.status = status; r.fulfilledAt = new Date().toISOString()
+  try { await persist() } catch (e) { r.status = 'pending'; delete r.fulfilledAt; throw e }
+  wake(r)
 }
 
 export function list(filter?: 'pending' | 'done'): SecretRequest[] {
@@ -57,9 +66,7 @@ export async function markFulfilled(id: string): Promise<SecretRequest> {
   const r = get(id)
   if (!r) throw err('NOT_FOUND', '需求不存在')
   if (r.status !== 'pending') throw err('CONFLICT', '需求已處理')
-  r.status = 'fulfilled'; r.fulfilledAt = new Date().toISOString()
-  await persist()
-  wake(r)
+  await transition(r, 'fulfilled')
   return r
 }
 
@@ -67,9 +74,7 @@ export async function cancel(id: string): Promise<SecretRequest> {
   const r = get(id)
   if (!r) throw err('NOT_FOUND', '需求不存在')
   if (r.status !== 'pending') return r
-  r.status = 'cancelled'; r.fulfilledAt = new Date().toISOString()
-  await persist()
-  wake(r)
+  await transition(r, 'cancelled')
   return r
 }
 

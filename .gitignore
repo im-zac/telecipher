@@ -15,7 +15,7 @@ dist/
 .vapid.json
 .push-subscriptions.json
 .requests.json
-*.json.tmp
+*.tmp
 
 # logs
 *.log
