@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtempSync, rmSync, readFileSync, statSync, readdirSync, writeFileSync, lstatSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { writeSecretFile, writeSecretEnvKey, atomicWrite } from '../server/lib/secretWriter'
+import { writeSecretFile, writeSecretEnvKey, atomicWrite, sweepStaleTmp } from '../server/lib/secretWriter'
 
 let dir: string
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'tc-w-')) })
@@ -85,5 +85,20 @@ describe('並發寫入', () => {
     const c = readFileSync(p, 'utf8')
     expect(c).toMatch(/^A="1"$/m)
     expect(c).toMatch(/^B="2"$/m)
+  })
+})
+
+describe('sweepStaleTmp', () => {
+  it('只刪自家資料檔的殘留 tmp，其他檔不動', () => {
+    const del = ['.requests.json.123.abc123def456.tmp', '.push-subscriptions.json.9.0a1b2c.tmp', '.vapid.json.4567.ffffff.tmp']
+    const keep = ['.requests.json', '.vapid.json', '.push-subscriptions.json', '.requests.json.bak',
+      'foo.env.123.abcdef.tmp', '.env.123.abcdef.tmp', '.requests.json.x.abc.tmp', '.requests.json.1.ABC.tmp', 'x.requests.json.1.abc.tmp']
+    for (const f of [...del, ...keep]) writeFileSync(join(dir, f), 'x')
+    const removed = sweepStaleTmp(dir)
+    expect(removed.sort()).toEqual([...del].sort())
+    expect(readdirSync(dir).sort()).toEqual([...keep].sort())
+  })
+  it('目錄不存在不 throw', () => {
+    expect(sweepStaleTmp(join(dir, 'nope'))).toEqual([])
   })
 })
