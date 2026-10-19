@@ -16,22 +16,25 @@ function quote(value: string): string {
 
 /**
  * 在 env 檔內 upsert 一行 `KEY="value"`。
- * 其他行（含註解、空行、CRLF）原樣；既有同名 key 替換第一個、刪掉其餘；保留 `export `。
+ * 其他行（含註解、空行）原樣；既有同名 key 替換第一個、刪掉其餘；保留 `export `。
+ * 檔案含 CRLF 時，替換與新增的行也用 CRLF，不混成 LF。
  */
 export function upsertEnvLine(content: string, key: string, value: string): string {
   const lineRe = new RegExp('^\\s*(export\\s+)?' + key + '\\s*=')
+  const cr = content.includes('\r\n') ? '\r' : ''   // 依 '\n' 切行，CRLF 檔的每行尾巴帶 '\r'
   const lines = content.split('\n')
-  if (lines[lines.length - 1] === '') lines.pop()   // 檔尾有換行 → 去掉空尾元素；最後統一補 LF
+  if (lines[lines.length - 1] === '') lines.pop()   // 檔尾有換行 → 去掉空尾元素；最後統一補行尾
+  else if (cr && lines.length && !lines[lines.length - 1]!.endsWith('\r')) lines[lines.length - 1] += '\r'   // CRLF 檔尾無換行
   let replaced = false
   const out: string[] = []
   for (const line of lines) {
     if (lineRe.test(line.replace(/\r$/, ''))) {
       if (replaced) continue
       const exp = /^\s*export\s+/.test(line) ? 'export ' : ''
-      out.push(`${exp}${key}=${quote(value)}`)
+      out.push(`${exp}${key}=${quote(value)}${cr}`)
       replaced = true
     } else out.push(line)
   }
-  if (!replaced) out.push(`${key}=${quote(value)}`)
+  if (!replaced) out.push(`${key}=${quote(value)}${cr}`)
   return out.join('\n') + '\n'
 }

@@ -26,8 +26,17 @@ describe('upsertEnvLine', () => {
   it('跳脫 " 與 \\，換行寫成 \\n', () => {
     expect(upsertEnvLine('', 'A', 'a"b\\c\nd')).toBe('A="a\\"b\\\\c\\nd"\n')
   })
-  it('CRLF 檔：其他行原樣，新行用 LF', () => {
-    expect(upsertEnvLine('B=1\r\n', 'A', 'x')).toBe('B=1\r\nA="x"\n')
+  it('CRLF 檔：新增的行也用 CRLF', () => {
+    expect(upsertEnvLine('B=1\r\n', 'A', 'x')).toBe('B=1\r\nA="x"\r\n')
+  })
+  it('CRLF 檔：替換的行保留 CRLF', () => {
+    expect(upsertEnvLine('A=old\r\nB=1\r\n', 'A', 'new')).toBe('A="new"\r\nB=1\r\n')
+  })
+  it('CRLF 檔尾無換行：補 CRLF 再新增', () => {
+    expect(upsertEnvLine('B=1\r\nC=2', 'A', 'x')).toBe('B=1\r\nC=2\r\nA="x"\r\n')
+  })
+  it('LF 檔維持 LF', () => {
+    expect(upsertEnvLine('A=old\nB=1\n', 'A', 'new')).toBe('A="new"\nB=1\n')
   })
   it('只有註解的檔', () => {
     expect(upsertEnvLine('# only\n', 'A', 'x')).toBe('# only\nA="x"\n')
