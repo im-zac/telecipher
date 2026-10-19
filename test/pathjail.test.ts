@@ -95,6 +95,19 @@ describe('resolveTarget NUL 字元', () => {
   })
 })
 
+describe('resolveTarget ~ 展開', () => {
+  it('~/x 展開成 $HOME/x', async () => {
+    expect(await ok('~/proj/tilde.env', 'env')).toBe(join(home, 'proj', 'tilde.env'))
+  })
+  it('~user/x → 拒絕（不支援），不會變成 $HOME/~user/x', async () => {
+    expect(await bad('~root/x', 'env')).toMatch(/不支援/)
+    expect(await bad('~zac/proj/x', 'env')).toMatch(/不支援/)
+  })
+  it('裸 ~ → 拒絕（是目錄）', async () => {
+    expect(await bad('~', 'env')).toMatch(/目錄/)
+  })
+})
+
 describe('resolveTarget 大小寫（macOS 檔案系統不分大小寫）', () => {
   it('拒絕清單比對忽略大小寫', async () => {
     for (const p of ['~/.SSH/id', '~/library/x', '~/.Zshrc', '~/.claude/Settings.json']) {

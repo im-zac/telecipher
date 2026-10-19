@@ -27,7 +27,10 @@ export async function resolveTarget(
 
   const homeReal = await realpath(home).catch(() => resolve(home))
   let abs: string
+  if (rawPath === '~') return { ok: false, reason: '路徑是目錄，需要檔案路徑' }
   if (rawPath.startsWith('~/')) abs = resolve(homeReal, rawPath.slice(2))
+  // ~user/x：不支援（否則會被當相對路徑，變成 $HOME/~user/x）
+  else if (rawPath.startsWith('~')) return { ok: false, reason: '不支援 ~user 形式，請用 ~/ 或絕對路徑' }
   else if (isAbsolute(rawPath)) abs = resolve(rawPath)
   else abs = resolve(homeReal, rawPath)
 
