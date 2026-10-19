@@ -77,6 +77,17 @@ describe('resolveTarget', () => {
   })
 })
 
+describe('resolveTarget 拒絕清單（登入 shell、憑證、全域設定）', () => {
+  it('.zlogin、.bash_login、.netrc、.gitconfig、.claude.json → 拒絕', async () => {
+    for (const p of ['~/.zlogin', '~/.bash_login', '~/.netrc', '~/.gitconfig', '~/.claude.json']) {
+      expect(await bad(p, 'env')).toMatch(/拒絕清單/)
+    }
+  })
+  it('.claude.json 不影響 .claude/ 底下其他檔', async () => {
+    expect(await ok('~/.claude/foo.env', 'env')).toBe(join(home, '.claude', 'foo.env'))
+  })
+})
+
 describe('resolveTarget 大小寫（macOS 檔案系統不分大小寫）', () => {
   it('拒絕清單比對忽略大小寫', async () => {
     for (const p of ['~/.SSH/id', '~/library/x', '~/.Zshrc', '~/.claude/Settings.json']) {

@@ -5,7 +5,7 @@ import type { WriteMode } from './types'
 export type ResolveResult = { ok: true; path: string } | { ok: false; reason: string }
 
 /** 相對 home 的拒絕前綴（目錄或檔案）。比對 resolve 後的路徑。 */
-const DENY_PREFIXES = ['.ssh', '.gnupg', 'Library', '.zshrc', '.zprofile', '.zshenv', '.bashrc', '.bash_profile', '.profile']
+const DENY_PREFIXES = ['.ssh', '.gnupg', 'Library', '.zshrc', '.zprofile', '.zshenv', '.bashrc', '.bash_profile', '.profile', '.zlogin', '.bash_login', '.netrc', '.gitconfig', '.claude.json']
 /** `.claude/settings*`（settings.json、settings.local.json…） */
 const DENY_PATTERNS = [/^\.claude\/settings[^/]*$/]
 
