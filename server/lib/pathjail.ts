@@ -21,6 +21,8 @@ export async function resolveTarget(
   home: string, rawPath: string, mode: WriteMode, opts: { repoDir?: string } = {},
 ): Promise<ResolveResult> {
   if (!rawPath || !rawPath.trim()) return { ok: false, reason: '路徑為空' }
+  // NUL 會讓 fs 呼叫 throw（變 500），且父層不存在時甚至能被登錄：一開始就擋。
+  if (rawPath.includes('\0')) return { ok: false, reason: '路徑含 NUL 字元' }
   if (rawPath.endsWith('/')) return { ok: false, reason: '路徑是目錄，需要檔案路徑' }
 
   const homeReal = await realpath(home).catch(() => resolve(home))

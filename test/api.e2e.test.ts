@@ -45,6 +45,11 @@ describe('requests flow', () => {
     expect(res.status).toBe(400)
     expect((await res.json()).data.reason).toMatch(/拒絕清單/)
   })
+  it('POST 路徑含 NUL → 400 帶中文 reason（不是 500）', async () => {
+    const res = await post('/api/requests', { session: 'dev', path: '~/proj/a\u0000b', mode: 'env', key: 'K', description: 'd' })
+    expect(res.status).toBe(400)
+    expect((await res.json()).data.reason).toMatch(/NUL 字元/)
+  })
   it('GET 列表含該筆；GET 單筆', async () => {
     const { requests } = await api('/api/requests?status=pending')
     expect(requests.some((r: any) => r.id === id)).toBe(true)

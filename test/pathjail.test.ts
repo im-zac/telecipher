@@ -88,6 +88,13 @@ describe('resolveTarget 拒絕清單（登入 shell、憑證、全域設定）',
   })
 })
 
+describe('resolveTarget NUL 字元', () => {
+  it('路徑含 NUL → 拒絕並說明（不 throw，API 才回 400 而非 500）', async () => {
+    expect(await bad('~/proj/a\0b', 'env')).toMatch(/NUL/)
+    expect(await bad(join(home, 'proj', '\0x'))).toMatch(/NUL/)
+  })
+})
+
 describe('resolveTarget 大小寫（macOS 檔案系統不分大小寫）', () => {
   it('拒絕清單比對忽略大小寫', async () => {
     for (const p of ['~/.SSH/id', '~/library/x', '~/.Zshrc', '~/.claude/Settings.json']) {
