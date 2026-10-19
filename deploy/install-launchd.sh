@@ -29,7 +29,11 @@ sudo launchctl enable system/$LABEL
 echo "== 4) 驗證 =="
 sleep 3
 echo -n "  daemon: "; sudo launchctl print system/$LABEL 2>/dev/null | grep -E "state = " | head -1 | tr -s ' '
-echo -n "  REST:   "; curl -s -o /dev/null -w "HTTP %{http_code}\n" -H "x-telecipher-token: $(cat "$REPO/.token")" http://127.0.0.1:9877/api/health
+# token 不放進命令列參數（ps 看得到）：寫成 0600 的 header 檔，用 curl -H @file，用完刪掉
+HDR="$(mktemp)"; chmod 600 "$HDR"; trap 'rm -f "$HDR"' EXIT
+printf 'x-telecipher-token: %s\n' "$(tr -d '\n' < "$REPO/.token")" > "$HDR"
+echo -n "  REST:   "; curl -s -o /dev/null -w "HTTP %{http_code}\n" -H @"$HDR" http://127.0.0.1:9877/api/health
+rm -f "$HDR"
 echo "  log:"; tail -3 "$REPO/logs/telecipher-server.log" 2>/dev/null | sed 's/^/    /'
 echo
 echo "重部署： bun run build && sudo launchctl kickstart -k system/$LABEL"
