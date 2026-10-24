@@ -8,7 +8,7 @@
 
 ## 技術棧
 
-Nuxt 4 flat layout（`~` = repo root，無 `app/`）、SPA（`ssr:false`）＋Nitro `node-server`、Vitest。**Node runtime；bun 只當 package manager**（`bun run <script>`，不加 `--bun`）。
+Nuxt 4 flat layout（`~` = repo root，無 `app/`）、SPA（`ssr:false`）＋Nitro `node-server`、Vitest。**Node runtime；bun 只當 package manager**（`bun run <script>`，不加 `--bun`）。daemon 的 node 由 `run.sh` 挑：`TELECIPHER_NODE` → nvm 最新版 → PATH → brew；目前跑 nvm 的 Node 24。
 
 ## 指令
 

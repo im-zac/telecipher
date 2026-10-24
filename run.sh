@@ -5,11 +5,18 @@ cd "$(dirname "$0")"
 export NUXT_TELECIPHER_TOKEN=$(cat .token)
 export NUXT_TELECIPHER_HOME="${HOME}"
 export HOST=127.0.0.1 NITRO_HOST=127.0.0.1 PORT=9877 NITRO_PORT=9877
-# launchd 的 PATH 很短；brew unlink 或換版本後 `command -v node` 會是空的。依序後備：
-# TELECIPHER_NODE → PATH 上的 node → brew opt/node → nvm 最新版
-NODE="${TELECIPHER_NODE:-$(command -v node 2>/dev/null)}"
+# node 來源依序：TELECIPHER_NODE → nvm 最新版（與 Zac 的 shell 一致）→ PATH → brew opt。
+# launchd 的 PATH 很短，且 brew 的 node 曾被 unlink，所以不把 PATH 排第一。
+NODE="$TELECIPHER_NODE"
 if [[ ! -x "$NODE" ]]; then
-  for c in /opt/homebrew/opt/node/bin/node /usr/local/opt/node/bin/node "$HOME"/.nvm/versions/node/*/bin/node; do
+  nvm_nodes=("$HOME"/.nvm/versions/node/v*/bin/node)
+  if (( ${#nvm_nodes} )); then
+    NODE="$(printf '%s\n' "${nvm_nodes[@]}" | sort -t/ -k7 -V | tail -1)"
+  fi
+fi
+[[ -x "$NODE" ]] || NODE="$(command -v node 2>/dev/null)"
+if [[ ! -x "$NODE" ]]; then
+  for c in /opt/homebrew/opt/node/bin/node /usr/local/opt/node/bin/node; do
     [[ -x "$c" ]] && { NODE="$c"; break; }
   done
 fi
